@@ -102,7 +102,7 @@ A startup building an AI-powered writing assistant. During development, the team
 
 ## Migration
 
-### [Migrate from Semantic Kernel](scenarios/migrate-from-semantic-kernel.md) ([repo](https://learn.microsoft.com/en-us/agent-framework/migration-guide/from-semantic-kernel/))
+### [Migrate from Semantic Kernel](scenarios/migrate-from-semantic-kernel.md) ([repo](https://learn.microsoft.com/agent-framework/migration-guide/from-semantic-kernel/))
 
 A customer support application originally built with Semantic Kernel plugins and planners. The team migrates simple chat completions to MEAI's `IChatClient` and replaces SK's agent orchestration with MAF agents, reducing complexity while gaining access to the latest features.
 

@@ -6,7 +6,7 @@ technologies:
   - MEAI
   - MAF
 status: GA
-repo: https://learn.microsoft.com/en-us/agent-framework/migration-guide/from-semantic-kernel/
+repo: https://learn.microsoft.com/agent-framework/migration-guide/from-semantic-kernel/
 ---
 
 # Migrate from Semantic Kernel
@@ -38,5 +38,5 @@ A customer support application originally built with Semantic Kernel plugins and
 ## Notes
 
 - **Timeline:** Plan to migrate within 6–12 months
-- **Official migration guide:** [SK → MAF migration](https://learn.microsoft.com/en-us/agent-framework/migration-guide/from-semantic-kernel/)
+- **Official migration guide:** [SK → MAF migration](https://learn.microsoft.com/agent-framework/migration-guide/from-semantic-kernel/)
 - MAF uses MEAI under the hood, so all MEAI knowledge carries forward

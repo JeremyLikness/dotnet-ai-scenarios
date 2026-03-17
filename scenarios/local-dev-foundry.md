@@ -43,6 +43,6 @@ var response = await client.GetResponseAsync("Analyze this compliance report..."
 
 ## Notes
 
-- Install: `winget install Microsoft.AI.Foundry.Local` (Windows) or see [docs](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-local/)
+- Install: `winget install Microsoft.AI.Foundry.Local` (Windows) or see [docs](https://learn.microsoft.com/azure/ai-foundry/foundry-local/)
 - List available models: `foundry model list`
 - Same API shape as Azure OpenAI — seamless switch to cloud
