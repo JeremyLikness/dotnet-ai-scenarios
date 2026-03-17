@@ -1,0 +1,151 @@
+name: "\U0001F4A1 New Scenario"
+description: Submit a new .NET AI scenario for the decision guide
+title: "[Scenario]: "
+labels: ["new-scenario"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## New Scenario Submission
+
+        Use this form to propose a new scenario for the .NET AI decision guide. Fill in all required fields. When you submit this issue, Copilot will validate your submission and create a PR if everything looks good.
+
+        **Need help?** Look at existing [scenario files](../scenarios/) for examples of the expected format.
+
+  - type: input
+    id: title
+    attributes:
+      label: Scenario Title
+      description: A short, descriptive title for this scenario
+      placeholder: "e.g., Real-time Streaming with AI Agents"
+    validations:
+      required: true
+
+  - type: textarea
+    id: job
+    attributes:
+      label: Job to Be Done
+      description: |
+        The "I need to..." statement. What is the developer trying to accomplish?
+        Must start with "I need to".
+      placeholder: "I need to stream AI responses in real-time to a web UI"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: Select the category that best fits this scenario. If none fit, choose "Other" and describe in the notes.
+      options:
+        - Core AI Integration
+        - Search and Retrieval
+        - Tool Integration
+        - Agent Orchestration
+        - Interoperability
+        - Developer Tooling
+        - Enterprise Model Management
+        - Content Generation
+        - Content Safety
+        - Cloud-Native Operations
+        - Edge and Device AI
+        - Migration
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: category_other
+    attributes:
+      label: New Category (if "Other" selected)
+      description: If you selected "Other" above, propose a new category name (Title Case)
+      placeholder: "e.g., Real-Time Communication"
+
+  - type: checkboxes
+    id: technologies
+    attributes:
+      label: Technologies
+      description: Select all technologies that apply to this scenario
+      options:
+        - label: "MEAI (Microsoft.Extensions.AI)"
+        - label: "MEVD (Microsoft.Extensions.VectorData)"
+        - label: "MCP (Model Context Protocol)"
+        - label: "MAF (Microsoft Agent Framework)"
+        - label: "GitHub Copilot SDK"
+        - label: "Azure AI Foundry"
+        - label: "Foundry Local"
+        - label: ".NET Aspire"
+        - label: "ONNX Runtime"
+        - label: "Ollama"
+        - label: "Docker Model Runner"
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Overall Status
+      description: The maturity status of the primary technology for this scenario
+      options:
+        - GA
+        - RC
+        - Technical Preview
+        - Experimental
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why These Technologies
+      description: |
+        Explain why the selected technologies are the right choice for this job.
+        Focus on what makes them a good fit — not a general overview of the tech.
+      placeholder: "MEAI provides provider-agnostic abstractions that let you..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: architecture
+    attributes:
+      label: Architecture
+      description: |
+        Describe how the pieces connect. Use a simple text diagram if possible.
+      placeholder: |
+        ```
+        User request → MEAI chat client → Azure OpenAI
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: |
+        A concrete, real-world scenario. Describe a specific app or system, not an abstract concept.
+      placeholder: "A retail company that uses AI to automatically categorize incoming support tickets..."
+    validations:
+      required: true
+
+  - type: input
+    id: repo
+    attributes:
+      label: Related Repository
+      description: |
+        A GitHub repository URL that demonstrates this scenario. This can be a sample, quickstart, or production reference.
+        If you don't have a dedicated repo, provide an inline code sample below instead.
+      placeholder: "https://github.com/dotnet/ai-samples/tree/main/src/my-example"
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code Sample
+      description: |
+        A short C# code sample demonstrating the approach. Keep it concise — just the key pattern.
+        **Required** if no Related Repository is provided above.
+      render: csharp
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Any caveats, considerations, or links to relevant documentation.

@@ -1,0 +1,381 @@
+name: Process New Scenario Issue
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  process-scenario:
+    if: contains(github.event.issue.labels.*.name, 'new-scenario')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Parse issue body
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const issueNumber = context.payload.issue.number;
+
+            // Parse form fields from the issue body
+            function extractField(label) {
+              const regex = new RegExp(`### ${label}\\s*\\n\\s*([\\s\\S]*?)(?=\\n### |$)`, 'i');
+              const match = body.match(regex);
+              return match ? match[1].trim() : '';
+            }
+
+            const title = extractField('Scenario Title');
+            const job = extractField('Job to Be Done');
+            const category = extractField('Category');
+            const categoryOther = extractField('New Category \\(if "Other" selected\\)');
+            const technologies = extractField('Technologies');
+            const status = extractField('Overall Status');
+            const why = extractField('Why These Technologies');
+            const architecture = extractField('Architecture');
+            const example = extractField('Example');
+            const code = extractField('Code Sample \\(optional\\)');
+            const notes = extractField('Additional Notes');
+
+            // Validate required fields
+            const errors = [];
+            if (!title) errors.push('**Scenario Title** is missing');
+            if (!job) errors.push('**Job to Be Done** is missing');
+            if (!job.toLowerCase().startsWith('i need to')) errors.push('**Job to Be Done** must start with "I need to"');
+            if (!category) errors.push('**Category** is missing');
+            if (category === 'Other' && !categoryOther) errors.push('**New Category** is required when "Other" is selected');
+            if (!technologies) errors.push('**Technologies** must have at least one selection');
+            if (!status) errors.push('**Overall Status** is missing');
+            if (!why) errors.push('**Why These Technologies** is missing');
+            if (!architecture) errors.push('**Architecture** is missing');
+            if (!example) errors.push('**Example** is missing');
+
+            // Parse technology checkboxes
+            const techList = [];
+            const techMap = {
+              'MEAI': 'MEAI',
+              'MEVD': 'MEVD',
+              'MCP': 'MCP',
+              'MAF': 'MAF',
+              'GitHub Copilot SDK': 'Copilot SDK',
+              'Azure AI Foundry': 'Azure AI Foundry',
+              'Foundry Local': 'Foundry Local',
+              '.NET Aspire': 'Aspire',
+              'ONNX Runtime': 'ONNX Runtime',
+              'Ollama': 'Ollama',
+              'Docker Model Runner': 'Docker Model Runner'
+            };
+            for (const [label, abbrev] of Object.entries(techMap)) {
+              if (technologies.includes(`[X] ${label}`) || technologies.includes(`[x] ${label}`)) {
+                techList.push(abbrev);
+              }
+            }
+            if (techList.length === 0 && !errors.includes('**Technologies** must have at least one selection')) {
+              errors.push('**Technologies** must have at least one selection');
+            }
+
+            const finalCategory = category === 'Other' ? categoryOther : category;
+
+            // Generate filename
+            const filename = title
+              .toLowerCase()
+              .replace(/[^a-z0-9\s-]/g, '')
+              .replace(/\s+/g, '-')
+              .substring(0, 50);
+
+            core.setOutput('title', title);
+            core.setOutput('job', job);
+            core.setOutput('category', finalCategory);
+            core.setOutput('technologies', JSON.stringify(techList));
+            core.setOutput('technologies_yaml', techList.map(t => `  - ${t}`).join('\n'));
+            core.setOutput('status', status);
+            core.setOutput('why', why);
+            core.setOutput('architecture', architecture);
+            core.setOutput('example', example);
+            core.setOutput('code', code);
+            core.setOutput('notes', notes);
+            core.setOutput('filename', filename);
+            core.setOutput('errors', JSON.stringify(errors));
+            core.setOutput('has_errors', errors.length > 0 ? 'true' : 'false');
+            core.setOutput('issue_number', issueNumber.toString());
+
+      - name: Post validation errors
+        if: steps.parse.outputs.has_errors == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const errors = JSON.parse('${{ steps.parse.outputs.errors }}');
+            const body = `## ⚠️ Scenario Validation Failed
+
+            The following issues were found with your submission:
+
+            ${errors.map(e => `- ${e}`).join('\n')}
+
+            Please edit the issue to fix these problems. The workflow will re-run automatically.
+
+            ---
+            *Need help? Check [existing scenarios](../scenarios/) for examples.*`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parseInt('${{ steps.parse.outputs.issue_number }}'),
+              body: body
+            });
+
+      - name: Create scenario file
+        if: steps.parse.outputs.has_errors == 'false'
+        run: |
+          FILENAME="${{ steps.parse.outputs.filename }}"
+          FILEPATH="scenarios/${FILENAME}.md"
+
+          # Check for duplicate filename
+          if [ -f "$FILEPATH" ]; then
+            FILEPATH="scenarios/${FILENAME}-${{ steps.parse.outputs.issue_number }}.md"
+          fi
+
+          cat > "$FILEPATH" << 'SCENARIO_EOF'
+          ---
+          title: ${{ steps.parse.outputs.title }}
+          job: ${{ steps.parse.outputs.job }}
+          category: ${{ steps.parse.outputs.category }}
+          technologies:
+          ${{ steps.parse.outputs.technologies_yaml }}
+          status: ${{ steps.parse.outputs.status }}
+          ---
+
+          # ${{ steps.parse.outputs.title }}
+
+          ## Why
+
+          ${{ steps.parse.outputs.why }}
+
+          ## Architecture
+
+          ${{ steps.parse.outputs.architecture }}
+
+          ## Example
+
+          ${{ steps.parse.outputs.example }}
+          SCENARIO_EOF
+
+          # Append optional code section
+          CODE='${{ steps.parse.outputs.code }}'
+          if [ -n "$CODE" ] && [ "$CODE" != "_No response_" ]; then
+            echo "" >> "$FILEPATH"
+            echo "## Code" >> "$FILEPATH"
+            echo "" >> "$FILEPATH"
+            echo "$CODE" >> "$FILEPATH"
+          fi
+
+          # Append optional notes section
+          NOTES='${{ steps.parse.outputs.notes }}'
+          if [ -n "$NOTES" ] && [ "$NOTES" != "_No response_" ]; then
+            echo "" >> "$FILEPATH"
+            echo "## Notes" >> "$FILEPATH"
+            echo "" >> "$FILEPATH"
+            echo "$NOTES" >> "$FILEPATH"
+          fi
+
+          echo "SCENARIO_FILE=$FILEPATH" >> $GITHUB_ENV
+
+      - name: Regenerate rollup files
+        if: steps.parse.outputs.has_errors == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Read all scenario files
+            const scenariosDir = 'scenarios';
+            const files = fs.readdirSync(scenariosDir).filter(f => f.endsWith('.md'));
+
+            const scenarios = files.map(file => {
+              const content = fs.readFileSync(path.join(scenariosDir, file), 'utf8');
+              const frontMatter = content.match(/^---\n([\s\S]*?)\n---/);
+              if (!frontMatter) return null;
+
+              const fm = frontMatter[1];
+              const get = (key) => {
+                const match = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
+                return match ? match[1].trim() : '';
+              };
+              const getList = (key) => {
+                const lines = fm.split('\n');
+                const idx = lines.findIndex(l => l.startsWith(`${key}:`));
+                if (idx === -1) return [];
+                const items = [];
+                for (let i = idx + 1; i < lines.length; i++) {
+                  const m = lines[i].match(/^\s+-\s+(.+)/);
+                  if (m) items.push(m[1].trim());
+                  else break;
+                }
+                return items;
+              };
+
+              // Extract example from body
+              const exampleMatch = content.match(/## Example\s*\n\s*([\s\S]*?)(?=\n## |$)/);
+              const example = exampleMatch ? exampleMatch[1].trim() : '';
+
+              return {
+                file,
+                title: get('title'),
+                job: get('job'),
+                category: get('category'),
+                technologies: getList('technologies'),
+                status: get('status'),
+                example
+              };
+            }).filter(Boolean);
+
+            // Generate jobs-to-be-done.md
+            let jobs = `# Jobs to Be Done\n\n> Auto-generated from scenario files. Do not edit directly.\n\nEvery scenario starts with a job statement — what the .NET developer is trying to accomplish.\n\n| Job | Scenario | Technologies | Status |\n|---|---|---|---|\n`;
+            for (const s of scenarios) {
+              jobs += `| ${s.job} | [${s.title}](scenarios/${s.file}) | ${s.technologies.join(', ')} | ${s.status} |\n`;
+            }
+            fs.writeFileSync('jobs-to-be-done.md', jobs);
+
+            // Generate categories.md
+            const byCategory = {};
+            for (const s of scenarios) {
+              if (!byCategory[s.category]) byCategory[s.category] = [];
+              byCategory[s.category].push(s);
+            }
+            let cats = `# Categories\n\n> Auto-generated from scenario files. Do not edit directly.\n\nScenarios are organized into categories that reflect the type of AI capability being added.\n`;
+            for (const [cat, items] of Object.entries(byCategory).sort()) {
+              cats += `\n## ${cat}\n\n`;
+              for (const s of items) {
+                cats += `- [${s.title}](scenarios/${s.file}) — ${s.technologies.join(', ')} (${s.status})\n`;
+              }
+            }
+            fs.writeFileSync('categories.md', cats);
+
+            // Generate examples.md
+            let examples = `# Examples\n\n> Auto-generated from scenario files. Do not edit directly.\n\nReal-world examples of .NET AI scenarios, grouped by category.\n`;
+            for (const [cat, items] of Object.entries(byCategory).sort()) {
+              examples += `\n## ${cat}\n`;
+              for (const s of items) {
+                examples += `\n### [${s.title}](scenarios/${s.file})\n\n${s.example}\n`;
+              }
+            }
+            fs.writeFileSync('examples.md', examples);
+
+            console.log(`Regenerated rollup files from ${scenarios.length} scenarios`);
+
+      - name: Create pull request
+        if: steps.parse.outputs.has_errors == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = parseInt('${{ steps.parse.outputs.issue_number }}');
+            const title = '${{ steps.parse.outputs.title }}';
+            const branch = `scenario/issue-${issueNumber}`;
+
+            // Create branch
+            const { data: ref } = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'heads/main'
+            });
+
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/heads/${branch}`,
+                sha: ref.object.sha
+              });
+            } catch (e) {
+              // Branch may already exist from a previous run
+              await github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${branch}`,
+                sha: ref.object.sha,
+                force: true
+              });
+            }
+
+            // Commit files
+            const fs = require('fs');
+            const filesToCommit = [
+              'jobs-to-be-done.md',
+              'examples.md',
+              'categories.md',
+              process.env.SCENARIO_FILE
+            ];
+
+            // Get current tree
+            const { data: baseTree } = await github.rest.git.getTree({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tree_sha: ref.object.sha
+            });
+
+            const blobs = [];
+            for (const file of filesToCommit) {
+              const content = fs.readFileSync(file, 'utf8');
+              const { data: blob } = await github.rest.git.createBlob({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                content: content,
+                encoding: 'utf-8'
+              });
+              blobs.push({
+                path: file,
+                mode: '100644',
+                type: 'blob',
+                sha: blob.sha
+              });
+            }
+
+            const { data: newTree } = await github.rest.git.createTree({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base_tree: baseTree.sha,
+              tree: blobs
+            });
+
+            const { data: newCommit } = await github.rest.git.createCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              message: `Add scenario: ${title}\n\nCloses #${issueNumber}`,
+              tree: newTree.sha,
+              parents: [ref.object.sha]
+            });
+
+            await github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${branch}`,
+              sha: newCommit.sha
+            });
+
+            // Create PR
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Add scenario: ${title}`,
+              head: branch,
+              base: 'main',
+              body: `## New Scenario: ${title}\n\nThis PR was automatically generated from #${issueNumber}.\n\n### Changes\n- Added scenario file: \`${process.env.SCENARIO_FILE}\`\n- Updated rollup files (jobs-to-be-done.md, examples.md, categories.md)\n\n### Review Checklist\n- [ ] Job statement is clear and starts with "I need to"\n- [ ] Category is appropriate\n- [ ] Technologies are correct\n- [ ] Example is concrete and realistic\n- [ ] Architecture diagram is accurate\n\nCloses #${issueNumber}`
+            });
+
+            // Comment on the issue
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `## ✅ Scenario PR Created\n\nYour scenario has been validated and a pull request has been created: #${pr.number}\n\nPlease review the PR to make sure everything looks correct. Once approved and merged, the scenario will be live.`
+            });
+
+            console.log(`Created PR #${pr.number}`);
