@@ -9,7 +9,7 @@ Microsoft offers a layered set of AI technologies for .NET — from low-level ab
 This repository captures real-world scenarios to help you answer:
 
 1. **What am I trying to build?** → Browse [jobs to be done](jobs-to-be-done.md)
-2. **Which technologies do I need?** → Read the [scenario files](scenarios/)
+2. **Which technologies do I need?** → Follow the [decision flow](decision-flow.md) or read the [scenario files](scenarios/)
 3. **What does this look like in practice?** → See the [examples](examples.md)
 
 ## Getting Started
